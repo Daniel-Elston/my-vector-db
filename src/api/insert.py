@@ -18,7 +18,12 @@ class InsertData:
         self.handler = state.db_manager.handler
 
     def pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
-        steps = [self.normalize_data, self.split_to_chunks, self.insert_data, self.cleanup]
+        steps = [
+            self.normalize_data,
+            self.split_to_chunks,
+            self.insert_data,
+            self.cleanup
+        ]
         for step in steps:
             df = TaskExecutor.run_child_step(step, df)
         return df

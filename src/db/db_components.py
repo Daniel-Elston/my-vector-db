@@ -137,6 +137,8 @@ class DataHandler:
                     f"Inserting batch {start // self.batch_size + 1}: rows {start} to {end - 1}"
                 )
                 self._copy_from_stringio(conn, batch_data)
+
+            self.remove_duplicates(conn)
         except (Exception, psycopg2.DatabaseError) as error:
             logging.error(f"Failed to insert batches: {error}")
         finally:
@@ -145,17 +147,54 @@ class DataHandler:
     def _copy_from_stringio(self, conn, df: pd.DataFrame) -> None:
         """Using COPY command to bulk load data."""
         buffer = StringIO()
-        df.to_csv(buffer, index=False, header=False)
+        df.to_csv(buffer, index=False, header=False, sep="\t")
         buffer.seek(0)
         cursor = conn.cursor()
         try:
             cursor.execute(f"SET search_path TO {self.schema};")
-            cursor.copy_from(buffer, self.table, sep=",", null="")
+            cursor.copy_from(buffer, self.table, sep="\t", null="")
             conn.commit()
             logging.info(f"SUCCESS: Data copied to {self.table} using COPY command.")
         except (Exception, psycopg2.DatabaseError) as error:
             conn.rollback()
             logging.error(f"Failed to copy data using COPY command: {error}")
+
+    def remove_duplicates(self, conn) -> None:
+        """Remove duplicate rows from the table based on all columns."""
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"SET search_path TO {self.schema};")
+
+            # Create a temporary table with unique rows
+            cursor.execute(
+                f"""
+                CREATE TEMPORARY TABLE temp_unique AS
+                SELECT DISTINCT ON (id) *
+                FROM {self.table};
+            """
+            )
+
+            # Delete all rows from the original table
+            cursor.execute(f"DELETE FROM {self.table};")
+
+            # Insert unique rows back into the original table
+            cursor.execute(
+                f"""
+                INSERT INTO {self.table}
+                SELECT * FROM temp_unique;
+            """
+            )
+
+            # Drop the temporary table
+            cursor.execute("DROP TABLE temp_unique;")
+
+            conn.commit()
+            logging.info(f"SUCCESS: Duplicates removed from {self.table}.")
+        except (Exception, psycopg2.DatabaseError) as error:
+            conn.rollback()
+            logging.error(f"Failed to remove duplicates: {error}")
+        finally:
+            cursor.close()
 
     def fetch_data(self, query: str = None) -> pd.DataFrame:
         """Fetch data from the database."""

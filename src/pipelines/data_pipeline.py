@@ -10,9 +10,9 @@ class DataPipeline:
         self.state = state
         self.exe = exe
 
-    def main(self):
+    def make_raw(self):
         steps = [
-            (MakeDataset(self.state), "raw", "sdo"),
+            (MakeDataset(self.state), None, "raw"),
         ]
         for step, load_path, save_paths in steps:
             self.exe.run_parent_step(step.pipeline, load_path, save_paths)

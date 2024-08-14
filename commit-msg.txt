@@ -1,1 +1,3 @@
-Commit 1 - Project init
+Commit 2 - Raw Data
+    - Raw dataset created
+    - Raw data inserted and loaded from pgsql db

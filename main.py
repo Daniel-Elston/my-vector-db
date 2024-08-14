@@ -8,8 +8,6 @@ from src.pipelines.db_pipeline import FetchPipeline, InsertPipeline
 from utils.execution import TaskExecutor
 from utils.project_setup import setup_project
 
-# from src.pipelines.api_pipeline import RequestPipeline
-
 
 class MainPipeline:
     def __init__(self, state: StateManager, exe: TaskExecutor):
@@ -21,10 +19,9 @@ class MainPipeline:
             f"INITIATING {__class__.__name__} from top-level script: ``{__file__.split('/')[-1]}``...\n"
         )
         steps = [
-            (DataPipeline(self.state, self.exe).main, "raw", "sdo"),
+            (DataPipeline(self.state, self.exe).make_raw, None, "raw"),
             (InsertPipeline(self.state, self.exe).main, "raw", None),
             (FetchPipeline(self.state, self.exe).main, None, "load"),
-            # (RequestPipeline(self.state, self.exe), 'main', 'raw', 'sdo'),
         ]
         for step, load_path, save_paths in steps:
             logging.info(

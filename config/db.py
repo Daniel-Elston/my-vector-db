@@ -63,6 +63,7 @@ class DatabaseConnManager:
 
     def __post_init__(self):
         self.initialize_database()
+        logging.debug("Initialized DatabaseConnManager")
 
     def initialize_database(self):
         self.conn = DatabaseConnection(self.config.admin_creds, self.config.db_info)
