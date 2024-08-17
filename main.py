@@ -4,7 +4,7 @@ import logging
 
 from config.state_init import StateManager
 from src.pipelines.data_pipeline import DataPipeline
-from src.pipelines.db_pipeline import FetchPipeline, InsertPipeline
+from src.pipelines.db_pipeline import DatabasePipeline
 from utils.execution import TaskExecutor
 from utils.project_setup import setup_project
 
@@ -20,8 +20,15 @@ class MainPipeline:
         )
         steps = [
             (DataPipeline(self.state, self.exe).make_raw, None, "raw"),
-            (InsertPipeline(self.state, self.exe).main, "raw", None),
-            (FetchPipeline(self.state, self.exe).main, None, "load"),
+            (DatabasePipeline(self.state, self.exe, stage="raw").insert, "raw", None),
+            (DatabasePipeline(self.state, self.exe, stage="raw").load, None, "load_raw"),
+            (DataPipeline(self.state, self.exe).vectorisation, "load_raw", "vectorised"),
+            (
+                DatabasePipeline(self.state, self.exe, stage="vectorised").insert,
+                "vectorised",
+                None,
+            ),
+            (DatabasePipeline(self.state, self.exe, stage="vectorised").load, None, "load_vector"),
         ]
         for step, load_path, save_paths in steps:
             logging.info(

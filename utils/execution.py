@@ -89,11 +89,12 @@ class TaskExecutor:
         step: Callable,
         load_path: Optional[Union[str, List[str], Path]] = None,
         save_paths: Optional[Union[str, List[str], Path]] = None,
-        args: Optional[Union[dict, None]] = None,
-        kwargs: Optional[Union[dict, None]] = None,
+        args: Optional[Union[dict, None]] = None,  #: Optional[Union[dict, None]] = None,
+        # **kwargs#: Optional[Union[dict, None]] = None,
     ) -> pd.DataFrame:
         """Pipeline runner for top-level main.py."""
         return step() if args is None else step(**args)
+        # return step(*args, **kwargs) if args or kwargs else step()
 
     def run_parent_step(
         self,
@@ -101,29 +102,40 @@ class TaskExecutor:
         load_path: Optional[Union[str, Path, List[Union[str, Path]]]] = None,
         save_paths: Optional[Union[str, Path, List[Union[str, Path]]]] = None,
         df: Optional[Union[pd.DataFrame]] = None,
+        *args,  #: Optional[Union[dict, None]] = None,
+        **kwargs,  #: Optional[Union[dict, None]] = None,
     ) -> Optional[pd.DataFrame]:
         """Pipeline runner for parent pipelines scripts (src/pipelines/*)"""
         if load_path is not None:
             if isinstance(load_path, (str, Path)):
                 load_path = self.paths.get_path(load_path)
                 with FileAccess.load_file(load_path) as df:
-                    logged_step = log_step(load_path, save_paths)(step)
-                    result = logged_step(df)
-                    return result
+                    df = df
             else:
                 pass
 
         if save_paths is not None:
             if isinstance(save_paths, (str, Path)):
                 save_paths = [self.paths.get_path(save_paths)]
-            else:
+            if isinstance(save_paths, list):
                 save_paths = [self.paths.get_path(path) for path in save_paths]
-
+        if save_paths is None:
             logged_step = log_step(load_path, save_paths)(step)
-            result = logged_step()
+            result = (
+                logged_step(df, *args, **kwargs)
+                if df is not None
+                else logged_step(*args, **kwargs)
+            )
+            return result
 
-            for path in save_paths:
-                FileAccess.save_file(result, path, self.data_config.overwrite)
+        logged_step = log_step(load_path, save_paths)(step)
+        result = (
+            logged_step(df, *args, **kwargs) if df is not None else logged_step(*args, **kwargs)
+        )
+        # result = logged_step(df)
+
+        for path in save_paths:
+            FileAccess.save_file(result, path, self.data_config.overwrite)
         return result
 
     @staticmethod

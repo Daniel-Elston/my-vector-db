@@ -5,7 +5,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-paths_store = {"raw": "data/raw/raw.parquet", "load": "data/db/load/raw-docs.xlsx"}
+paths_store = {
+    "raw": "data/raw/raw.parquet",
+    "load_raw": "data/db/load/raw-docs.xlsx",
+    "process": "data/processed/process.parquet",
+    "vectorised": "data/sdo/vectorised.parquet",
+    "load_vector": "data/db/load/vectorised.xlsx",
+}
 
 
 @dataclass

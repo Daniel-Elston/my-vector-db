@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 import re
 from io import StringIO
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import psycopg2.pool
+from psycopg2.extras import execute_values
 from sqlalchemy import create_engine
 
 
@@ -74,8 +77,23 @@ class DatabaseOperations:
         self.schema = schema
         self.table = table
 
+    def run_sql_script(self, sql_script_path: Path) -> None:
+        """Run SQL script."""
+        sql_script = open(sql_script_path, "r").read()
+        conn = self.connection.pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(f"SET search_path TO {self.schema}")
+            cur.execute(sql_script)
+            conn.commit()
+        except (Exception, psycopg2.DatabaseError) as error:
+            conn.rollback()
+            logging.error(f"Failed to run SQL script: {error}")
+        finally:
+            cur.close()
+            self.connection.pool.putconn(conn)
+
     def create_table_if_not_exists(self, df: pd.DataFrame) -> None:
-        """Create table if it does not exist."""
         conn = self.connection.pool.getconn()
         try:
             cur = conn.cursor()
@@ -83,9 +101,16 @@ class DatabaseOperations:
 
             clean_columns = [self._clean_column_name(col) for col in df.columns]
 
+            column_definitions = []
+            for col, dtype in zip(clean_columns, df.dtypes):
+                if col == "document_vector":
+                    column_definitions.append(f"{col} vector({300})")
+                else:
+                    column_definitions.append(f"{col} {self._map_dtype(dtype)}")
+
             create_table_sql = f"""
             CREATE TABLE IF NOT EXISTS {self.table} (
-                {', '.join([f"{col} {self._map_dtype(dtype)}" for col, dtype in zip(clean_columns, df.dtypes)])});
+                {', '.join(column_definitions)});
             """
             logging.info(f"Creating table with SQL: {create_table_sql}")
             cur.execute(create_table_sql)
@@ -107,13 +132,18 @@ class DatabaseOperations:
 
     @staticmethod
     def _map_dtype(dtype):
-        """Map pandas/numpy dtype to SQL dtype."""
         if pd.api.types.is_integer_dtype(dtype):
             return "BIGINT"
         elif pd.api.types.is_float_dtype(dtype):
             return "FLOAT"
         elif pd.api.types.is_datetime64_any_dtype(dtype):
             return "TIMESTAMP"
+        elif pd.api.types.is_bool_dtype(dtype):
+            return "BOOLEAN"
+        elif pd.api.types.is_string_dtype(dtype):
+            return "TEXT"
+        elif pd.api.types.is_object_dtype(dtype):
+            return "vector(300)"
         else:
             return "TEXT"
 
@@ -125,23 +155,46 @@ class DataHandler:
         self.table = table
         self.batch_size = batch_size
 
-    def insert_batches_to_db(self, df: pd.DataFrame) -> None:
-        """Insert data into the database in batches using COPY command."""
+    @staticmethod
+    def _clean_column_name(column_name: str) -> str:
+        """Clean column name to be SQL-friendly. Replaces non-alphanumeric characters with _"""
+        clean_name = re.sub(r"[^\w]", "_", column_name)
+        if clean_name[0].isdigit():
+            clean_name = f"col_{clean_name}"
+        return clean_name
+
+    def insert_batches_to_db(self, df: pd.DataFrame, batch_size: int = 1000):
         conn = self.connection.pool.getconn()
         try:
-            num_rows = len(df)
-            for start in range(0, num_rows, self.batch_size):
-                end = start + self.batch_size
-                batch_data = df.iloc[start:end]
-                logging.info(
-                    f"Inserting batch {start // self.batch_size + 1}: rows {start} to {end - 1}"
-                )
-                self._copy_from_stringio(conn, batch_data)
+            cur = conn.cursor()
+            cur.execute(f"SET search_path TO {self.schema}")
 
-            self.remove_duplicates(conn)
+            columns = [self._clean_column_name(col) for col in df.columns]
+            insert_sql = f"""
+            INSERT INTO {self.table} ({', '.join(columns)})
+            VALUES %s
+            """
+
+            data = []
+            for _, row in df.iterrows():
+                row_data = []
+                for value in row:
+                    if isinstance(value, np.ndarray):
+                        value = value.tolist()
+                    elif isinstance(value, np.int64):
+                        value = int(value)
+                    elif isinstance(value, np.float64):
+                        value = float(value)
+                    row_data.append(value)
+                data.append(tuple(row_data))
+
+            execute_values(cur, insert_sql, data, page_size=batch_size)
+            conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error(f"Failed to insert batches: {error}")
+            conn.rollback()
+            logging.error(f"Failed to insert data: {error}")
         finally:
+            cur.close()
             self.connection.pool.putconn(conn)
 
     def _copy_from_stringio(self, conn, df: pd.DataFrame) -> None:
@@ -165,7 +218,6 @@ class DataHandler:
         try:
             cursor.execute(f"SET search_path TO {self.schema};")
 
-            # Create a temporary table with unique rows
             cursor.execute(
                 f"""
                 CREATE TEMPORARY TABLE temp_unique AS
@@ -174,10 +226,7 @@ class DataHandler:
             """
             )
 
-            # Delete all rows from the original table
             cursor.execute(f"DELETE FROM {self.table};")
-
-            # Insert unique rows back into the original table
             cursor.execute(
                 f"""
                 INSERT INTO {self.table}
@@ -185,7 +234,6 @@ class DataHandler:
             """
             )
 
-            # Drop the temporary table
             cursor.execute("DROP TABLE temp_unique;")
 
             conn.commit()

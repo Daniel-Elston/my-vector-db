@@ -1,3 +1,4 @@
-Commit 2 - Raw Data
-    - Raw dataset created
-    - Raw data inserted and loaded from pgsql db
+Commit 3 - Vectorisation
+    - NLP applied
+    - Restructure of db pipeline to allow stage selection (raw/later stages)
+    - db_components adjusted to better handle dtypes and vectors

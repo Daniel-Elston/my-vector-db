@@ -1,31 +1,59 @@
-from __future__ import annotations
+from typing import Optional
+
+import pandas as pd
 
 from config.state_init import StateManager
 from utils.execution import TaskExecutor
 
 
-class InsertPipeline:
-    def __init__(self, state: StateManager, exe: TaskExecutor):
+class DatabasePipeline:
+    def __init__(self, state: StateManager, exe: TaskExecutor, stage: Optional[str] = None):
         self.state = state
         self.exe = exe
+        self.stage = stage
+        self._set_paths_and_table()
 
-    def main(self):
+    def insert(self):
         steps = [
-            (self.state.db_manager.ops.create_table_if_not_exists, "raw", None),
-            (self.state.db_manager.handler.insert_batches_to_db, "raw", None),
+            (self._create_table, self.load_path, None),
+            (self._insert_data, self.load_path, None),
         ]
         for step, load_path, save_paths in steps:
             self.exe.run_parent_step(step, load_path, save_paths)
 
-
-class FetchPipeline:
-    def __init__(self, state: StateManager, exe: TaskExecutor):
-        self.state = state
-        self.exe = exe
-
-    def main(self):
+    def load(self):
         steps = [
-            (self.state.db_manager.handler.fetch_data, None, "load"),
+            (self._fetch_data, None, self.save_paths),
         ]
         for step, load_path, save_paths in steps:
             self.exe.run_parent_step(step, load_path, save_paths)
+
+    def _set_paths_and_table(self):
+        if self.stage == "raw":
+            self.load_path = "raw"
+            self.save_paths = "load_raw"
+            self.table_name = "raw_docs"
+        elif self.stage == "vectorised":
+            self.load_path = "vectorised"
+            self.save_paths = "load_vector"
+            self.table_name = "vector_docs"
+        else:
+            raise ValueError(f"Invalid stage: {self.stage}")
+
+    def _create_table(self, df: pd.DataFrame):
+        db_ops = self.state.db_manager.ops
+        db_ops.table = self.table_name
+        db_ops.create_table_if_not_exists(df)
+        return df
+
+    def _insert_data(self, df: pd.DataFrame):
+        data_handler = self.state.db_manager.handler
+        data_handler.table = self.table_name
+        data_handler.insert_batches_to_db(df)
+        return df
+
+    def _fetch_data(self):
+        data_handler = self.state.db_manager.handler
+        data_handler.table = self.table_name
+        query = f"SELECT * FROM {self.state.db_manager.config.schema}.{self.table_name};"
+        return data_handler.fetch_data(query)
