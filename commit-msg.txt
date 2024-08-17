@@ -1,4 +1,1 @@
-Commit 3 - Vectorisation
-    - NLP applied
-    - Restructure of db pipeline to allow stage selection (raw/later stages)
-    - db_components adjusted to better handle dtypes and vectors
+Commit 4 - DRY for db_pipeline

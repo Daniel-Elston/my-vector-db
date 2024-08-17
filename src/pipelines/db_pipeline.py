@@ -13,6 +13,15 @@ class DatabasePipeline:
         self.stage = stage
         self._set_paths_and_table()
 
+    def insert_load(self):
+        steps = [
+            (self._create_table, self.load_path, None),
+            (self._insert_data, self.load_path, None),
+            (self._fetch_data, None, self.save_paths),
+        ]
+        for step, load_path, save_paths in steps:
+            self.exe.run_parent_step(step, load_path, save_paths)
+
     def insert(self):
         steps = [
             (self._create_table, self.load_path, None),

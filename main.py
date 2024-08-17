@@ -20,15 +20,13 @@ class MainPipeline:
         )
         steps = [
             (DataPipeline(self.state, self.exe).make_raw, None, "raw"),
-            (DatabasePipeline(self.state, self.exe, stage="raw").insert, "raw", None),
-            (DatabasePipeline(self.state, self.exe, stage="raw").load, None, "load_raw"),
+            (DatabasePipeline(self.state, self.exe, stage="raw").insert_load, "raw", "load_raw"),
             (DataPipeline(self.state, self.exe).vectorisation, "load_raw", "vectorised"),
             (
-                DatabasePipeline(self.state, self.exe, stage="vectorised").insert,
+                DatabasePipeline(self.state, self.exe, stage="vectorised").insert_load,
                 "vectorised",
-                None,
+                "load_vector",
             ),
-            (DatabasePipeline(self.state, self.exe, stage="vectorised").load, None, "load_vector"),
         ]
         for step, load_path, save_paths in steps:
             logging.info(
