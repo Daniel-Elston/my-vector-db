@@ -16,9 +16,6 @@ class DocumentEmbeddings:
     def __init__(self, state: StateManager):
         self.state = state
         self.dc = state.data_config
-        # self.vector_size = 300
-        # self.window = 5
-        # self.min_count = 1
         self.model = None
 
     def pipeline(self, df: pd.DataFrame) -> pd.DataFrame:

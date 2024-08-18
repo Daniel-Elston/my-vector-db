@@ -27,6 +27,7 @@ class MainPipeline:
                 "vectorised",
                 "load_vector",
             ),
+            (DataPipeline(self.state, self.exe).run_vec_sim_search, "load_vector", "results"),
         ]
         for step, load_path, save_paths in steps:
             logging.info(
@@ -36,6 +37,7 @@ class MainPipeline:
             )
             self.exe.run_main_step(step, load_path, save_paths)
             logging.info(f"{step.__self__.__class__.__name__} completed SUCCESSFULLY.\n")
+
         logging.info(
             f'Completed {__class__.__name__} from top-level script: ``{__file__.split("/")[-1]}`` SUCCESSFULLY.\n'
         )

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+
+import pandas as pd
 import spacy
 
 from config.state_init import StateManager
 from src.data.embeddings import DocumentEmbeddings
 from src.data.make_dataset import MakeDataset
 from src.data.process import Preprocessor
+from src.data.similarity import SimilarityPipeline
 from utils.execution import TaskExecutor
 
 
@@ -29,3 +33,13 @@ class DataPipeline:
         ]
         for step, load_path, save_paths in steps:
             self.exe.run_parent_step(step.pipeline, load_path, save_paths)
+
+    def run_vec_sim_search(self):
+        steps = [
+            (SimilarityPipeline(self.state), "load_vector", "results"),
+        ]
+        for step, load_path, save_paths in steps:
+            self.exe.run_parent_step(step.pipeline, load_path, save_paths)
+
+        results = pd.read_json(self.state.paths.get_path("results"))
+        logging.info(f"RESULTS:\n {results}")

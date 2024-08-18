@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 paths_store = {
-    "raw": "data/raw/raw.parquet",
-    "load_raw": "data/db/load/raw-docs.xlsx",
+    "raw": "data/raw/docs.json",
+    "test": "data/raw/test_docs.json",
+    "load_raw": "data/db/load/raw-docs.parquet",
     "process": "data/processed/process.parquet",
-    "vectorised": "data/sdo/vectorised.parquet",
+    "vectorised": "data/sdo/vectorised.xlsx",
     "load_vector": "data/db/load/vectorised.xlsx",
+    "results": "reports/results/results.json",
 }
 
 

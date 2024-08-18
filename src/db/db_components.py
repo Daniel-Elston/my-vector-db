@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from io import StringIO
-from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import psycopg2.pool
 from psycopg2.extras import execute_values
@@ -77,22 +74,6 @@ class DatabaseOperations:
         self.schema = schema
         self.table = table
 
-    def run_sql_script(self, sql_script_path: Path) -> None:
-        """Run SQL script."""
-        sql_script = open(sql_script_path, "r").read()
-        conn = self.connection.pool.getconn()
-        try:
-            cur = conn.cursor()
-            cur.execute(f"SET search_path TO {self.schema}")
-            cur.execute(sql_script)
-            conn.commit()
-        except (Exception, psycopg2.DatabaseError) as error:
-            conn.rollback()
-            logging.error(f"Failed to run SQL script: {error}")
-        finally:
-            cur.close()
-            self.connection.pool.putconn(conn)
-
     def create_table_if_not_exists(self, df: pd.DataFrame) -> None:
         conn = self.connection.pool.getconn()
         try:
@@ -103,10 +84,7 @@ class DatabaseOperations:
 
             column_definitions = []
             for col, dtype in zip(clean_columns, df.dtypes):
-                if col == "document_vector":
-                    column_definitions.append(f"{col} vector({300})")
-                else:
-                    column_definitions.append(f"{col} {self._map_dtype(dtype)}")
+                column_definitions.append(f"{col} {self._map_dtype(dtype)}")
 
             create_table_sql = f"""
             CREATE TABLE IF NOT EXISTS {self.table} (
@@ -175,18 +153,7 @@ class DataHandler:
             VALUES %s
             """
 
-            data = []
-            for _, row in df.iterrows():
-                row_data = []
-                for value in row:
-                    if isinstance(value, np.ndarray):
-                        value = value.tolist()
-                    elif isinstance(value, np.int64):
-                        value = int(value)
-                    elif isinstance(value, np.float64):
-                        value = float(value)
-                    row_data.append(value)
-                data.append(tuple(row_data))
+            data = [tuple(row) for _, row in df[columns].iterrows()]
 
             execute_values(cur, insert_sql, data, page_size=batch_size)
             conn.commit()
@@ -194,23 +161,9 @@ class DataHandler:
             conn.rollback()
             logging.error(f"Failed to insert data: {error}")
         finally:
+            self.remove_duplicates(conn)
             cur.close()
             self.connection.pool.putconn(conn)
-
-    def _copy_from_stringio(self, conn, df: pd.DataFrame) -> None:
-        """Using COPY command to bulk load data."""
-        buffer = StringIO()
-        df.to_csv(buffer, index=False, header=False, sep="\t")
-        buffer.seek(0)
-        cursor = conn.cursor()
-        try:
-            cursor.execute(f"SET search_path TO {self.schema};")
-            cursor.copy_from(buffer, self.table, sep="\t", null="")
-            conn.commit()
-            logging.info(f"SUCCESS: Data copied to {self.table} using COPY command.")
-        except (Exception, psycopg2.DatabaseError) as error:
-            conn.rollback()
-            logging.error(f"Failed to copy data using COPY command: {error}")
 
     def remove_duplicates(self, conn) -> None:
         """Remove duplicate rows from the table based on all columns."""
@@ -221,7 +174,7 @@ class DataHandler:
             cursor.execute(
                 f"""
                 CREATE TEMPORARY TABLE temp_unique AS
-                SELECT DISTINCT ON (id) *
+                SELECT DISTINCT ON (document) *
                 FROM {self.table};
             """
             )

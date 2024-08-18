@@ -49,6 +49,21 @@ def setup_logging(name, project_dir, log_file_name, config):
                 "handlers": ["console", "file"],
                 "propagate": False,
             },
+            "gensim.models.word2vec": {
+                "level": "WARNING",
+                "handlers": ["console", "file"],
+                "propagate": False,
+            },
+            "gensim": {
+                "level": "WARNING",
+                "handlers": ["console", "file"],
+                "propagate": False,
+            },
+            "gensim.utils": {
+                "level": "WARNING",
+                "handlers": ["console", "file"],
+                "propagate": False,
+            },
             "PIL": {"level": "WARNING", "handlers": ["console", "file"], "propagate": False},
         },
         "root": {

@@ -1,1 +1,5 @@
-Commit 4 - DRY for db_pipeline
+Commit 5 - Similarity searching
+    - Basic similarity search applied
+    - Adjusted make_dataset to load stored raw_docs
+    - Removed unsued code from db_components.py
+    - Removed load and insert methods from db_pipeline
