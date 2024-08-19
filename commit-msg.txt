@@ -1,5 +1,1 @@
-Commit 5 - Similarity searching
-    - Basic similarity search applied
-    - Adjusted make_dataset to load stored raw_docs
-    - Removed unsued code from db_components.py
-    - Removed load and insert methods from db_pipeline
+Commit 6 - Search Optimisation 1, all-MiniLM-L6-v2

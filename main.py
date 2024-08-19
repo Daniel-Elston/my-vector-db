@@ -13,21 +13,22 @@ class MainPipeline:
     def __init__(self, state: StateManager, exe: TaskExecutor):
         self.state = state
         self.exe = exe
+        self.data_pipeline = DataPipeline(self.state, self.exe)
 
     def run(self):
         logging.info(
             f"INITIATING {__class__.__name__} from top-level script: ``{__file__.split('/')[-1]}``...\n"
         )
         steps = [
-            (DataPipeline(self.state, self.exe).make_raw, None, "raw"),
+            (self.data_pipeline.make_raw, None, "raw"),
             (DatabasePipeline(self.state, self.exe, stage="raw").insert_load, "raw", "load_raw"),
-            (DataPipeline(self.state, self.exe).vectorisation, "load_raw", "vectorised"),
+            (self.data_pipeline.vectorisation, "load_raw", "vectorised"),
             (
                 DatabasePipeline(self.state, self.exe, stage="vectorised").insert_load,
                 "vectorised",
                 "load_vector",
             ),
-            (DataPipeline(self.state, self.exe).run_vec_sim_search, "load_vector", "results"),
+            (self.data_pipeline.run_vec_sim_search, "load_vector", "results"),
         ]
         for step, load_path, save_paths in steps:
             logging.info(
@@ -37,7 +38,6 @@ class MainPipeline:
             )
             self.exe.run_main_step(step, load_path, save_paths)
             logging.info(f"{step.__self__.__class__.__name__} completed SUCCESSFULLY.\n")
-
         logging.info(
             f'Completed {__class__.__name__} from top-level script: ``{__file__.split("/")[-1]}`` SUCCESSFULLY.\n'
         )
