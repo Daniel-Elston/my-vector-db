@@ -8,6 +8,7 @@ import dotenv
 import yaml
 
 from config.state_init import StateManager
+from utils.execution import TaskExecutor
 from utils.logging_config import setup_logging
 
 
@@ -39,7 +40,10 @@ def initialize_project(
     # Initialize StateManager
     state_manager = StateManager()
 
-    return project_dir, project_config, state_manager
+    # Initialize Executor
+    exe = TaskExecutor(state_manager)
+
+    return project_dir, project_config, state_manager, exe
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -47,14 +51,14 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def setup_project() -> Tuple[Path, dict, StateManager]:
+def init_project() -> Tuple[Path, dict, StateManager]:
     """Set up project environment, configuration, logging, and StateManager."""
-    project_dir, project_config, state_manager = initialize_project()
+    project_dir, project_config, state_manager, exe = initialize_project()
     logging.getLogger().setLevel(logging.DEBUG)
-    return project_dir, project_config, state_manager
+    return project_dir, project_config, state_manager, exe
 
 
 if __name__ == "__main__":
-    project_dir, project_config, state_manager, db_manager = setup_project()
+    project_dir, project_config, state_manager, db_manager = init_project()
     logging.info("Project setup completed successfully.")
     logging.debug(f"StateManager initialized with: {state_manager}")

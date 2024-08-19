@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 import pandas as pd
 
@@ -7,7 +7,7 @@ from utils.execution import TaskExecutor
 
 
 class DatabasePipeline:
-    def __init__(self, state: StateManager, exe: TaskExecutor, stage: Optional[str] = None):
+    def __init__(self, state: StateManager, exe: TaskExecutor, stage: str):
         self.state = state
         self.exe = exe
         self.stage = stage
@@ -19,8 +19,7 @@ class DatabasePipeline:
             (self._insert_data, self.load_path, None),
             (self._fetch_data, None, self.save_paths),
         ]
-        for step, load_path, save_paths in steps:
-            self.exe.run_parent_step(step, load_path, save_paths)
+        self.exe._execute_steps(steps, stage="parent")
 
     def _set_paths_and_table(self):
         if self.stage == "raw":

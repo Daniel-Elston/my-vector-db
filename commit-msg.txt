@@ -1,1 +1,3 @@
-Commit 6 - Search Optimisation 1, all-MiniLM-L6-v2
+Commit 7 - Porject Finish
+    - General adjustments to structure
+    - General cleanup
