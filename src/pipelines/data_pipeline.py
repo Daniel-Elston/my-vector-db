@@ -31,11 +31,11 @@ class DataPipeline:
     def vectorisation(self):
         self.embeddings_model = DocumentEmbeddings(self.state)
         steps = [
-            (Preprocessor(self.state, self.nlp), "load_raw", "process"),
-            (self.embeddings_model, "process", "vectorised"),
+            (Preprocessor(self.state, self.nlp).pipeline, "load_raw", "process"),
+            (self.embeddings_model.pipeline, "process", "vectorised"),
         ]
         for step, load_path, save_paths in steps:
-            self.exe.run_parent_step(step.pipeline, load_path, save_paths)
+            self.exe.run_parent_step(step, load_path, save_paths)
 
     def run_vec_sim_search(self):
         if self.embeddings_model is None:

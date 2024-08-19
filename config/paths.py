@@ -13,6 +13,8 @@ paths_store = {
     "vectorised": "data/sdo/vectorised.xlsx",
     "load_vector": "data/db/load/vectorised.xlsx",
     "results": "reports/results/results.json",
+    "models": "models/glove.6B.300d.txt",
+    "models_output": "models/glove.6B.300d.word2vec.txt",
 }
 
 

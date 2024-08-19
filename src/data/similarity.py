@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import ast
-from typing import List
+import re
 
 import numpy as np
 import pandas as pd
@@ -28,29 +27,37 @@ class SimilarityPipeline:
         return df
 
     def convert_vectors(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["document_vector"] = df["document_vector"].apply(self.parse_vector_string)
+        df["document_vector"] = df["document_vector"].apply(self.safe_convert)
+        df = df.dropna(subset=["document_vector"])
         return df
-
-    @staticmethod
-    def parse_vector_string(vector_string: str) -> List[float]:
-        try:
-            return ast.literal_eval(vector_string)
-        except (ValueError, SyntaxError):
-            return []
 
     def vector_similarity_search(self, df: pd.DataFrame) -> pd.DataFrame:
         input_title = self.dc.input_title
         input_document = self.dc.input_document
         input_text = f"{input_title} {input_document}"
-
         input_vector = self.embeddings.get_document_vector(input_text)
-        document_vectors = np.array(df["document_vector"].tolist())
-        similarities = cosine_similarity([input_vector], document_vectors)[0]
+        similarities = cosine_similarity([input_vector], df["document_vector"].tolist())[0]
         df["similarity"] = similarities
         results = df.sort_values("similarity", ascending=False).head(5)
         results = results[["id", "title", "document", "similarity"]]
+
         return results
 
-    def get_combined_vector(self, title: str, document: str) -> np.ndarray:
-        combined_text = f"{title} {document}"
-        return self.embeddings.get_document_vector(combined_text)
+    @staticmethod
+    def string_to_array(vector_string):
+        if isinstance(vector_string, str):
+            vector_string = vector_string.strip("[]")
+            vector_list = [float(x) for x in re.split(r"\s+", vector_string) if x.strip()]
+            return np.array(vector_list)
+        elif isinstance(vector_string, np.ndarray):
+            return vector_string
+        else:
+            raise ValueError(f"Unexpected type for vector: {type(vector_string)}")
+
+    def safe_convert(self, vector_string):
+        try:
+            return self.string_to_array(vector_string)
+        except ValueError as e:
+            print(f"Error converting vector: {e}")
+            print(f"Problematic vector string: {vector_string[:100]}...")
+            return None
